@@ -24,7 +24,6 @@ public:
 	wxNotificationMessage *notification = nullptr;
 
 public:
-	static void OnInjectButtonExecute(wxCommandEvent &evt, cMain *ref);
 	void OnInjectButton(wxCommandEvent &evt);
 	void OnHideButton(wxCommandEvent &evt);
 	void OnSelectButton(wxCommandEvent &evt);
@@ -37,7 +36,9 @@ public:
 	wxDECLARE_EVENT_TABLE();
 
 public:
-	bool loopInject();
+	void loopInject();
 	void disableAutoInject();
+	void UpdateStatus(const wxString& newStatus);
+	void UpdateDelayLabel(const wxString& newLabel);
 	friend taskBarIcon::taskBarIcon();
 };
