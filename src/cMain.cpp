@@ -6,13 +6,21 @@
 #include "config.h"
 #include "icon/icon.xpm"
 
-wxBEGIN_EVENT_TABLE(cMain, wxFrame)
-EVT_BUTTON(101, OnInjectButton)
-EVT_BUTTON(102, OnHideButton)
-EVT_BUTTON(103, OnSelectButton)
+enum IDs {
+    INJECT_BUTTON_ID = 1,
+    HIDE_BUTTON_ID,
+    SELECT_BUTTON_ID,
+    CUSTOM_CHECKBOX_ID,
+    AUTO_CHECKBOX_ID,
+};
 
-EVT_CHECKBOX(201, OnCustomCheckBox)
-EVT_CHECKBOX(202, OnAutoCheckBox)
+wxBEGIN_EVENT_TABLE(cMain, wxFrame)
+EVT_BUTTON(INJECT_BUTTON_ID, OnInjectButton)
+EVT_BUTTON(HIDE_BUTTON_ID, OnHideButton)
+EVT_BUTTON(SELECT_BUTTON_ID, OnSelectButton)
+
+EVT_CHECKBOX(CUSTOM_CHECKBOX_ID, OnCustomCheckBox)
+EVT_CHECKBOX(AUTO_CHECKBOX_ID, OnAutoCheckBox)
 
 wxEND_EVENT_TABLE();
 
@@ -23,12 +31,12 @@ cMain::cMain() : wxFrame(nullptr, wxID_ANY, "Fate Client Injector", wxDefaultPos
     this->SetBackgroundColour(wxColour(255, 255, 255, 255));
 
     mainPanel = new wxPanel(this, wxID_ANY);
-	btn_Inject = new wxButton(mainPanel, 101, "Inject", wxPoint(5, 5), wxSize(100, 40));
-   	btn_Hide = new wxButton(mainPanel, 102, "Hide Menu", wxPoint(5, 50), wxSize(100, 20));
-    btn_Select = new wxButton(mainPanel, 103, "Select", wxPoint(5, 75), wxSize(60, 20));
+	btn_Inject = new wxButton(mainPanel, INJECT_BUTTON_ID, "Inject", wxPoint(5, 5), wxSize(100, 40));
+	btn_Hide = new wxButton(mainPanel, HIDE_BUTTON_ID, "Hide Menu", wxPoint(5, 50), wxSize(100, 20));
+    btn_Select = new wxButton(mainPanel, SELECT_BUTTON_ID, "Select", wxPoint(5, 75), wxSize(60, 20));
 	txt_Name = new wxTextCtrl(mainPanel, wxID_ANY, "minecraft.windows.exe", wxPoint(110, 5), wxSize(165, 20));
-	check_Custom = new wxCheckBox(mainPanel, 201, "Custom Target", wxPoint(110, 30), wxSize(165, 20));
-	check_Auto = new wxCheckBox(mainPanel, 202, "Auto Inject", wxPoint(110, 50), wxSize(130, 20));
+	check_Custom = new wxCheckBox(mainPanel, CUSTOM_CHECKBOX_ID, "Custom Target", wxPoint(110, 30), wxSize(165, 20));
+	check_Auto = new wxCheckBox(mainPanel, AUTO_CHECKBOX_ID, "Auto Inject", wxPoint(110, 50), wxSize(130, 20));
 	txt_Delay = new wxTextCtrl(mainPanel, wxID_ANY, "5", wxPoint(245, 50), wxSize(30, 20), wxTE_CENTRE, wxTextValidator(wxFILTER_NUMERIC));
     txt_Delay->SetMaxLength(2);
 	txt_Path = new wxTextCtrl(mainPanel, wxID_ANY, "Click \"Select\" to select the dll file", wxPoint(70, 75), wxSize(205, 20));
@@ -62,44 +70,39 @@ cMain::~cMain() {
 
 
 void cMain::OnInjectButton(wxCommandEvent& evt) {
-
-    cMain::OnInjectButtonExecute(evt, this);
-}
-
-void cMain::OnInjectButtonExecute(wxCommandEvent& evt, cMain* ref) {
     std::string debug;
 
     DWORD procId = 0;
 
-    procId = GetProcId(ref->txt_Name->GetValue().mb_str());
+    procId = GetProcId(txt_Name->GetValue().mb_str());
 
 
     if (procId == 0) {
 
         debug = "Can't find process! | " + std::to_string(procId);
-        ref->SetStatusText(debug, 0);
+        SetStatusText(debug, 0);
         return;
     }
-    wxString wxStrPath = ref->txt_Path->GetValue();
+    wxString wxStrPath = txt_Path->GetValue();
     std::wstring wStrPath = wxStrPath.ToStdWstring(); // converting wxstr to wstr
     std::ifstream test(wStrPath.c_str()); // test if file path is valid
     if (!test) {
 
         debug = "Process found! | " + std::to_string(procId) + " | invalid file path";
-        ref->SetStatusText(debug, 0);
+        SetStatusText(debug, 0);
         return;
     }
 
     SetAccessControl(wStrPath, L"S-1-15-2-1");
     performInjection(procId, wStrPath.c_str());
     debug = "Process found! | " + std::to_string(procId) + " | valid file path | Injected!";
-    ref->SetStatusText(debug, 0);
+    SetStatusText(debug, 0);
 
 
-    customProcName = ref->check_Custom->GetValue();
-    delaystr = ref->txt_Delay->GetValue();
-    dllPath = ref->txt_Path->GetValue();
-    procName = ref->txt_Name->GetValue();
+    customProcName = check_Custom->GetValue();
+    delaystr = txt_Delay->GetValue();
+    dllPath = txt_Path->GetValue();
+    procName = txt_Name->GetValue();
 
     config cfg;
     cfg.saveConfig();
@@ -141,8 +144,6 @@ void cMain::OnCustomCheckBox(wxCommandEvent& evt) {
 }
 
 
-bool cheapThreadFix = false;
-
 void cMain::OnAutoCheckBox(wxCommandEvent& evt) {
     if (check_Auto->IsChecked()) {
         txt_Name->Disable();
@@ -150,10 +151,8 @@ void cMain::OnAutoCheckBox(wxCommandEvent& evt) {
         txt_Delay->Disable();
         btn_Select->Disable();
         check_Custom->Disable();
-        if (!cheapThreadFix) {
-            std::thread loopthread(&cMain::loopInject, this); // for autoinject
-            loopthread.detach();
-        }
+        std::thread loopthread(&cMain::loopInject, this);
+        loopthread.detach();
     }
     else {
         disableAutoInject();
@@ -172,21 +171,28 @@ void cMain::disableAutoInject() {
     btn_Select->Enable();
 }
 
-bool cMain::loopInject() {
-    cheapThreadFix = true;
+void cMain::UpdateStatus(const wxString& newStatus) {
+    SetStatusText(newStatus, 0);
+}
+
+void cMain::UpdateDelayLabel(const wxString& newLabel) {
+    txt_Delay->SetLabel(newLabel);
+}
+
+void cMain::loopInject() {
     std::string debug;
 
     int delay = atoi(txt_Delay->GetValue().mb_str());
 
     if (delay <= 1) {
         delay = 1;
-        txt_Delay->SetLabel("1");
+        CallAfter(&cMain::UpdateDelayLabel, "1");
         debug = "AutoInject: Enabled | trying every second";
     }
     else {
         debug = "AutoInject: Enabled | trying every " + std::to_string(delay) + " seconds";
     }
-    SetStatusText(debug, 0);
+    CallAfter(&cMain::UpdateStatus, debug);
 
 
     DWORD procId = 0;
@@ -201,44 +207,39 @@ bool cMain::loopInject() {
             procId = GetProcId(txt_Name->GetValue().mb_str());
             if (procId == 0) {
                 debug = "AutoInject: Can't find process! | " + std::to_string(procId);
-                SetStatusText(debug, 0);
+                CallAfter(&cMain::UpdateStatus, debug);
             }
             else if (procId == oldProcId) {
                 debug = "AutoInject: Already Injected! | " + std::to_string(procId);
-                SetStatusText(debug, 0);
+                CallAfter(&cMain::UpdateStatus, debug);
             }
             if (!check_Auto->IsChecked()) {
-                cheapThreadFix = false;
-                return false;
+                return;
             }
         }
         wxString wxStrPath = txt_Path->GetValue();
         std::wstring wStrPath = wxStrPath.ToStdWstring(); // converting wxstr to wstr
         std::ifstream test(wStrPath.c_str()); // test if file path is valid
         if (!test) {
-
             debug = "AutoInject: Process found! | " + std::to_string(procId) + " | invalid file path";
-            SetStatusText(debug, 0);
+            CallAfter(&cMain::UpdateStatus, debug);
             check_Auto->SetValue(false); // wxWidgets does that automaticly on click so we only need this here
             disableAutoInject();
-            cheapThreadFix = false;
-            return true;
+            return;
         }
         SetAccessControl(wStrPath, L"S-1-15-2-1");
         performInjection(procId, wStrPath.c_str());
         debug = "Process found! | " + std::to_string(procId) + " | valid file path | Injected!";
-        SetStatusText(debug, 0);
+        CallAfter(&cMain::UpdateStatus, debug);
         oldProcId = procId;
 
-        customProcName = ref->check_Custom->GetValue();
-        delaystr = ref->txt_Delay->GetValue();
-        dllPath = ref->txt_Path->GetValue();
-        procName = ref->txt_Name->GetValue();
+        customProcName = check_Custom->GetValue();
+        delaystr = txt_Delay->GetValue();
+        dllPath = txt_Path->GetValue();
+        procName = txt_Name->GetValue();
 
         config cfg;
         cfg.saveConfig();
     }
-    cheapThreadFix = false;
-    return false;
 }
 
