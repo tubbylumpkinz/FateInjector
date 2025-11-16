@@ -1,13 +1,6 @@
 # Fate Injector
 The Fate Client themed UWP app DLL Injector.
 
-Latest Injector [Download](https://github.com/fligger/FateInjector/releases/latest/download/FateInjector.exe)
-
-Get Fate Client DLL on the Fate Client [Repository](https://github.com/fligger/FateClient)
-
-#### Because PC viruses may use simular code to infect computers this might get reconized as a virus. 
-#### BUT this injector does not contain any viruses! Feel free to check the source!
-
 ## Features:
 - Auto Inject
 - Automaticly adds the "All Applications Packages" Permission to the dll so UWP apps can load the dll.
